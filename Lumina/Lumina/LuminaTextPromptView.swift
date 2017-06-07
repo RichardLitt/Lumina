@@ -15,7 +15,7 @@ final class LuminaTextPromptView: UIView {
     
     public override init(frame: CGRect) {
         super.init(frame: frame)
-        self.textLabel = UILabel(frame: CGRect(origin: CGPoint(x: 5, y: 5), size: CGSize(width: frame.width - 10, height: frame.height - 10)))
+        self.textLabel = UILabel(frame: CGRect.zero)
         self.textLabel.backgroundColor = UIColor.clear
         self.textLabel.textColor = UIColor.white
         self.textLabel.textAlignment = .center
@@ -27,6 +27,12 @@ final class LuminaTextPromptView: UIView {
         self.backgroundColor = UIColor.blue
         self.alpha = 0.0
         self.layer.cornerRadius = 5.0
+        self.updateFrame(to: frame)
+    }
+    
+    internal func updateFrame(to: CGRect) {
+        self.frame = to
+        self.textLabel.frame = CGRect(origin: CGPoint(x: 5, y: 5), size: CGSize(width: frame.width - 10, height: frame.height - 10))
     }
     
     public func updateText(to text:String) {

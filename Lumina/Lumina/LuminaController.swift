@@ -181,8 +181,24 @@ public final class LuminaController: UIViewController {
         
     }
     
+    private func arrangeUI() {
+        if let switchButton = self.cameraSwitchButton {
+            switchButton.frame = CGRect(x: self.view.frame.maxX - 50, y: self.view.frame.minY + 10, width: 40, height: 40)
+            self.cameraSwitchButton = switchButton
+        }
+        if let cancelButton = self.cameraCancelButton {
+            cancelButton.frame = CGRect(origin: CGPoint(x: self.view.frame.minX + 10, y: self.view.frame.maxY - 40), size: CGSize(width: 70, height: 30))
+            self.cameraCancelButton = cancelButton
+        }
+        if let torchButton = self.cameraTorchButton {
+            torchButton.frame = CGRect(origin: CGPoint(x: self.view.frame.minX + 10, y: self.view.frame.minY + 10), size: CGSize(width: 40, height: 40))
+            self.cameraTorchButton = torchButton
+        }
+        arrangeTextPromptView()
+    }
+    
     private func createUI() {
-        self.cameraSwitchButton = UIButton(frame: CGRect(x: self.view.frame.maxX - 50, y: self.view.frame.minY + 10, width: 40, height: 40))
+        self.cameraSwitchButton = UIButton(frame: CGRect.zero)
         guard let cameraSwitchButton = self.cameraSwitchButton else {
             print("Could not access camera switch button memory address")
             return
@@ -194,7 +210,7 @@ public final class LuminaController: UIViewController {
         let image = UIImage(named: "cameraSwitch", in: Bundle(for: LuminaController.self), compatibleWith: nil)
         cameraSwitchButton.setImage(image, for: .normal)
         
-        self.cameraCancelButton = UIButton(frame: CGRect(origin: CGPoint(x: self.view.frame.minX + 10, y: self.view.frame.maxY - 40), size: CGSize(width: 70, height: 30)))
+        self.cameraCancelButton = UIButton(frame: CGRect.zero)
         guard let cameraCancelButton = self.cameraCancelButton else {
             return
         }
@@ -209,7 +225,7 @@ public final class LuminaController: UIViewController {
         cameraCancelButton.addTarget(self, action: #selector(cameraCancelButtonTapped), for: UIControlEvents.touchUpInside)
         self.view.addSubview(cameraCancelButton)
         
-        let cameraTorchButton = UIButton(frame: CGRect(origin: CGPoint(x: self.view.frame.minX + 10, y: self.view.frame.minY + 10), size: CGSize(width: 40, height: 40)))
+        let cameraTorchButton = UIButton(frame: CGRect.zero)
         cameraTorchButton.backgroundColor = UIColor.clear
         cameraTorchButton.addTarget(self, action: #selector(cameraTorchButtonTapped), for: UIControlEvents.touchUpInside)
         let torchImage = UIImage(named: "cameraTorch", in: Bundle(for: LuminaController.self), compatibleWith: nil)
@@ -221,11 +237,51 @@ public final class LuminaController: UIViewController {
     public required init?(coder aDecoder: NSCoder) {
         return nil
     }
+    
+    private func updatePreviewLayer(_ layer: AVCaptureConnection, orientation: AVCaptureVideoOrientation) {
+        layer.videoOrientation = orientation
+        if let previewLayer = self.previewLayer {
+            previewLayer.frame = self.view.bounds
+            self.previewLayer = previewLayer
+        }
+    }
+    
+    override public func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard let previewLayer = self.previewLayer else {
+            return
+        }
+        if let connection = previewLayer.connection  {
+            let currentDevice = UIDevice.current
+            let orientation = currentDevice.orientation
+            let previewLayerConnection = connection
+            if (previewLayerConnection.isVideoOrientationSupported) {
+                switch (orientation) {
+                case .portrait:
+                    updatePreviewLayer(previewLayerConnection, orientation: .portrait)
+                    break
+                case .landscapeRight:
+                    updatePreviewLayer(previewLayerConnection, orientation: .landscapeLeft)
+                    break
+                case .landscapeLeft:
+                    updatePreviewLayer(previewLayerConnection, orientation: .landscapeRight)
+                    break
+                case .portraitUpsideDown:
+                    updatePreviewLayer(previewLayerConnection, orientation: .portraitUpsideDown)
+                    break
+                default:
+                    updatePreviewLayer(previewLayerConnection, orientation: .portrait)
+                    break
+                }
+            }
+        }
+        arrangeUI()
+    }
 }
 
 extension LuminaController { // MARK: Text prompt methods
     fileprivate func createTextPromptView() {
-        let view = LuminaTextPromptView(frame: CGRect(origin: CGPoint(x: self.view.bounds.minX + 10, y: self.view.bounds.minY + 70), size: CGSize(width: self.view.bounds.size.width - 20, height: 80)))
+        let view = LuminaTextPromptView(frame: CGRect.zero)
         if let prompt = self.initialPrompt {
             view.updateText(to: prompt)
         }
@@ -250,6 +306,13 @@ extension LuminaController { // MARK: Text prompt methods
                 return
             }
             view.hide(andErase: andEraseText)
+        }
+    }
+    
+    fileprivate func arrangeTextPromptView() {
+        if let textPromptView = self.textPromptView {
+            textPromptView.updateFrame(to: CGRect(origin: CGPoint(x: self.view.bounds.minX + 10, y: self.view.bounds.minY + 70), size: CGSize(width: self.view.bounds.size.width - 20, height: 80)))
+            self.textPromptView = textPromptView
         }
     }
 }
@@ -626,21 +689,27 @@ private extension UIImage { // MARK: Fix UIImage orientation
         
         var transform: CGAffineTransform = CGAffineTransform.identity
         
-        switch imageOrientation {
-        case UIImageOrientation.down, UIImageOrientation.downMirrored:
-            transform = transform.translatedBy(x: size.width, y: size.height)
-            transform = transform.rotated(by: CGFloat.pi)
-            break
-        case UIImageOrientation.left, UIImageOrientation.leftMirrored:
-            transform = transform.translatedBy(x: size.width, y: 0)
-            transform = transform.rotated(by: CGFloat.pi / 2)
-            break
-        case UIImageOrientation.right, UIImageOrientation.rightMirrored:
+        switch UIApplication.shared.statusBarOrientation {
+        case .portrait:
             transform = transform.translatedBy(x: 0, y: size.height)
             transform = transform.rotated(by: CGFloat.pi / -2)
+            print("portrait!")
             break
-        case UIImageOrientation.up, UIImageOrientation.upMirrored:
+        case .landscapeRight:
+            print("landscape right!")
+            return self
+        case .landscapeLeft:
+            transform = transform.translatedBy(x: size.width, y: size.height)
+            transform = transform.rotated(by: CGFloat.pi / 4)
+            print("landscape left!")
             break
+        case .portraitUpsideDown:
+            transform = transform.translatedBy(x: size.width, y: 0)
+            transform = transform.rotated(by: CGFloat.pi / 2)
+            print("upside down!")
+            break
+        case .unknown:
+            return self
         }
         
         switch imageOrientation {
