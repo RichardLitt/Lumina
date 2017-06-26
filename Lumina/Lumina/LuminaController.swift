@@ -37,7 +37,7 @@ public final class LuminaController: UIViewController {
     fileprivate var videoOutput: AVCaptureVideoDataOutput {
         let videoOutput = AVCaptureVideoDataOutput()
         videoOutput.alwaysDiscardsLateVideoFrames = true
-        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as AnyHashable : kCVPixelFormatType_32BGRA]
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as AnyHashable as! String : kCVPixelFormatType_32BGRA]
         videoOutput.setSampleBufferDelegate(self, queue: videoBufferQueue)
         return videoOutput
     }
@@ -68,14 +68,17 @@ public final class LuminaController: UIViewController {
         return true
     }
     
-    private var discoverySession: AVCaptureDeviceDiscoverySession? {
-        var deviceTypes = [AVCaptureDeviceType]()
+    private var discoverySession: AVCaptureDevice.DiscoverySession? {
+        var deviceTypes = [AVCaptureDevice.default(for: AVMediaType.video)]
+//        var deviceTypes = [AVCaptureDevice.DeviceType()]
+//        var deviceTypes = [AVCaptureDevice.DeviceType()]
         deviceTypes.append(.builtInWideAngleCamera)
+        deviceTypes.append()
         if #available(iOS 10.2, *) {
             deviceTypes.append(.builtInDualCamera)
             deviceTypes.append(.builtInTelephotoCamera)
         }
-        let discoverySession = AVCaptureDeviceDiscoverySession(deviceTypes: deviceTypes, mediaType: AVMediaTypeVideo, position: AVCaptureDevicePosition.unspecified)
+        let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: deviceTypes, mediaType: AVMediaType.video, position: AVCaptureDevice.Position.unspecified)
         return discoverySession
     }
     
@@ -87,12 +90,12 @@ public final class LuminaController: UIViewController {
         }
         for discoveryDevice: AVCaptureDevice in discoverySession.devices {
             if cameraDirection == .front {
-                if discoveryDevice.position == AVCaptureDevicePosition.front {
+                if discoveryDevice.position == AVCaptureDevice.Position.front {
                     device = discoveryDevice
                     break
                 }
             } else {
-                if discoveryDevice.position == AVCaptureDevicePosition.back { // TODO: add support for iPhone 7 plus dual cameras
+                if discoveryDevice.position == AVCaptureDevice.Position.back { // TODO: add support for iPhone 7 plus dual cameras
                     device = discoveryDevice
                     break
                 }
@@ -105,14 +108,14 @@ public final class LuminaController: UIViewController {
         super.init(nibName: nil, bundle: nil)
         
         self.session = AVCaptureSession()
-        self.previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        self.previewLayer = AVCaptureVideoPreviewLayer(session: session!)
         self.previewView = self.view
         
         guard let previewLayer = self.previewLayer else {
             print("Could not access image preview layer")
             return
         }
-        previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill
+        previewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
         self.view.layer.addSublayer(previewLayer)
         self.view.bounds = UIScreen.main.bounds
         
@@ -129,14 +132,14 @@ public final class LuminaController: UIViewController {
         }
         self.currentCameraDirection = desiredCameraDirection
         
-        session.sessionPreset = AVCaptureSessionPresetHigh
+        session.sessionPreset = AVCaptureSession.Preset.high
         
         if let input = self.input {
             session.removeInput(input)
         }
         
         do {
-            try self.input = AVCaptureDeviceInput(device: getDevice(for: desiredCameraDirection))
+            try self.input = AVCaptureDeviceInput(device: getDevice(for: desiredCameraDirection)!)
         } catch {
             print("Error getting device input for \(desiredCameraDirection.rawValue)")
             return
@@ -144,8 +147,8 @@ public final class LuminaController: UIViewController {
         
         let metadataOutput = AVCaptureMetadataOutput()
         
-        if session.canAddInput(self.input) {
-            session.addInput(self.input)
+        if session.canAddInput(self.input!) {
+            session.addInput(self.input!)
         }
         
         let videoOutput = self.videoOutput
@@ -165,7 +168,7 @@ public final class LuminaController: UIViewController {
         session.commitConfiguration()
         session.startRunning()
         
-        if let connection = videoOutput.connection(withMediaType: AVMediaTypeVideo) {
+        if let connection = videoOutput.connection(with: AVMediaType.video) {
             connection.isEnabled = true
             if connection.isVideoMirroringSupported && desiredCameraDirection == .front {
                 connection.isVideoMirrored = true
@@ -361,7 +364,7 @@ private extension LuminaController { //MARK: Button Tap Methods
             do {
                 if input.device.isTorchModeSupported(.on) {
                     try input.device.lockForConfiguration()
-                    try input.device.setTorchModeOnWithLevel(1.0)
+                    try input.device.setTorchModeOn(level: 1.0)
                     self.torchOn = !self.torchOn
                     input.device.unlockForConfiguration()
                 }
@@ -443,7 +446,7 @@ private extension CMSampleBuffer { // MARK: Extending CMSampleBuffer
 }
 
 extension LuminaController: AVCaptureVideoDataOutputSampleBufferDelegate { // MARK: Image Tracking Output
-    public func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputSampleBuffer sampleBuffer: CMSampleBuffer!, from connection: AVCaptureConnection!) {
+    public func captureOutput(_ captureOutput: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard case self.trackImages = true else {
             return
         }
@@ -553,7 +556,7 @@ extension LuminaController { // MARK: Tap to focus methods
 }
 
 extension LuminaController: AVCaptureMetadataOutputObjectsDelegate { // MARK: Metadata output buffer
-    public func captureOutput(_ captureOutput: AVCaptureOutput!, didOutputMetadataObjects metadataObjects: [Any]!, from connection: AVCaptureConnection!) {
+    public func metadataOutput(_ captureOutput: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject], from connection: AVCaptureConnection) {
         guard case self.trackMetadata = true else {
             return
         }
@@ -570,7 +573,7 @@ extension LuminaController: AVCaptureMetadataOutputObjectsDelegate { // MARK: Me
             guard let firstObject = metadataObjects.first else {
                 return
             }
-            if let _: AVMetadataMachineReadableCodeObject = previewLayer.transformedMetadataObject(for: firstObject as! AVMetadataObject) as? AVMetadataMachineReadableCodeObject { // TODO: Figure out exactly why Faces and Barcodes fire this method separately
+            if let _: AVMetadataMachineReadableCodeObject = previewLayer.transformedMetadataObject(for: firstObject ) as? AVMetadataMachineReadableCodeObject { // TODO: Figure out exactly why Faces and Barcodes fire this method separately
                 if let oldBorders = self.metadataBordersCodes {
                     for oldBorder in oldBorders {
                         DispatchQueue.main.async {
@@ -582,7 +585,7 @@ extension LuminaController: AVCaptureMetadataOutputObjectsDelegate { // MARK: Me
                 var newBorders = [LuminaMetadataBorderView]()
                 
                 for metadata in metadataObjects {
-                    guard let transformed: AVMetadataMachineReadableCodeObject = previewLayer.transformedMetadataObject(for: metadata as! AVMetadataObject) as? AVMetadataMachineReadableCodeObject else {
+                    guard let transformed: AVMetadataMachineReadableCodeObject = previewLayer.transformedMetadataObject(for: metadata ) as? AVMetadataMachineReadableCodeObject else {
                         continue
                     }
                     var border = LuminaMetadataBorderView()
@@ -612,7 +615,7 @@ extension LuminaController: AVCaptureMetadataOutputObjectsDelegate { // MARK: Me
                 var newBorders = [LuminaMetadataBorderView]()
                 
                 for metadata in metadataObjects {
-                    guard let face: AVMetadataFaceObject = previewLayer.transformedMetadataObject(for: metadata as! AVMetadataObject) as? AVMetadataFaceObject else {
+                    guard let face: AVMetadataFaceObject = previewLayer.transformedMetadataObject(for: metadata ) as? AVMetadataFaceObject else {
                         continue
                     }
                     let border = LuminaMetadataBorderView(frame: face.bounds)
@@ -681,6 +684,38 @@ extension LuminaController: AVCaptureMetadataOutputObjectsDelegate { // MARK: Me
     }
 }
 
+private extension UIImage {
+    struct RotationOptions: OptionSet {
+        let rawValue: Int
+        
+        static let flipOnVerticalAxis = RotationOptions(rawValue: 1)
+        static let flipOnHorizontalAxis = RotationOptions(rawValue: 2)
+    }
+    //let flippedImage = UIImage(named: "my_amazing_image")?.rotated(by: Measurement(value: 48.0, unit: .degrees), options: [.flipOnVerticalAxis])
+    
+    func rotated(by rotationAngle: Measurement<UnitAngle>, options: RotationOptions = []) -> UIImage? {
+        guard let cgImage = self.cgImage else { return nil }
+        
+        let rotationInRadians = CGFloat(rotationAngle.converted(to: .radians).value)
+        let transform = CGAffineTransform(rotationAngle: rotationInRadians)
+        var rect = CGRect(origin: .zero, size: self.size).applying(transform)
+        rect.origin = .zero
+        
+        let renderer = UIGraphicsImageRenderer(size: rect.size)
+        return renderer.image { renderContext in
+            renderContext.cgContext.translateBy(x: rect.midX, y: rect.midY)
+            renderContext.cgContext.rotate(by: rotationInRadians)
+            
+            let x = options.contains(.flipOnVerticalAxis) ? -1.0 : 1.0
+            let y = options.contains(.flipOnHorizontalAxis) ? 1.0 : -1.0
+            renderContext.cgContext.scaleBy(x: CGFloat(x), y: CGFloat(y))
+            
+            let drawRect = CGRect(origin: CGPoint(x: -self.size.width/2, y: -self.size.height/2), size: self.size)
+            renderContext.cgContext.draw(cgImage, in: drawRect)
+        }
+    }
+}
+
 private extension UIImage { // MARK: Fix UIImage orientation
     var fixOrientation: UIImage {
         if imageOrientation == UIImageOrientation.up {
@@ -691,23 +726,26 @@ private extension UIImage { // MARK: Fix UIImage orientation
         
         switch UIApplication.shared.statusBarOrientation {
         case .portrait:
-            transform = transform.translatedBy(x: 0, y: size.height)
-            transform = transform.rotated(by: CGFloat.pi / -2)
-            print("portrait!")
-            break
+            return self.rotated(by: Measurement(value: 90, unit: .degrees))!
+//            transform = transform.translatedBy(x: 0, y: size.height)
+//            transform = transform.rotated(by: CGFloat.pi / -2)
+//            print("portrait!")
+            
         case .landscapeRight:
             print("landscape right!")
             return self
         case .landscapeLeft:
-            transform = transform.translatedBy(x: size.width, y: size.height)
-            transform = transform.rotated(by: CGFloat.pi / 4)
-            print("landscape left!")
-            break
+            return self.rotated(by: Measurement(value: 180, unit: .degrees))!
+            //transform = transform.translatedBy(x: size.width, y: size.height)
+//            transform = transform.rotated(by: CGFloat(Double.pi))
+//            print("landscape left!")
+//            break
         case .portraitUpsideDown:
-            transform = transform.translatedBy(x: size.width, y: 0)
-            transform = transform.rotated(by: CGFloat.pi / 2)
-            print("upside down!")
-            break
+            return self.rotated(by: Measurement(value: -90, unit: .degrees))!
+//            transform = transform.translatedBy(x: size.width, y: 0)
+//            transform = transform.rotated(by: CGFloat.pi / 2)
+//            print("upside down!")
+//            break
         case .unknown:
             return self
         }

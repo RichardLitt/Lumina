@@ -173,7 +173,7 @@
 					53B828CF1EAAA07F00E3A624 = {
 						CreatedOnToolsVersion = 8.2.1;
 						DevelopmentTeam = RQ632LL2X3;
-						LastSwiftMigration = 0820;
+						LastSwiftMigration = 0900;
 						ProvisioningStyle = Automatic;
 					};
 					53B828D81EAAA07F00E3A624 = {
@@ -366,7 +366,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 3.0;
+				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_VERSION = 4.0;
 			};
 			name = Debug;
 		};
@@ -387,7 +388,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.okun.io.Lumina;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 3.0;
+				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_VERSION = 4.0;
 			};
 			name = Release;
 		};
